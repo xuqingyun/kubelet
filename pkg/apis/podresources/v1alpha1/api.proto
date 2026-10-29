@@ -1,18 +1,8 @@
-// To regenerate api.pb.go run hack/update-generated-pod-resources.sh
+// To regenerate api.pb.go run `hack/update-codegen.sh protobindings`
 syntax = "proto3";
 
 package v1alpha1;
-
-import "github.com/gogo/protobuf/gogoproto/gogo.proto";
-
-option (gogoproto.goproto_stringer_all) = false;
-option (gogoproto.stringer_all) =  true;
-option (gogoproto.goproto_getters_all) = true;
-option (gogoproto.marshaler_all) = true;
-option (gogoproto.sizer_all) = true;
-option (gogoproto.unmarshaler_all) = true;
-option (gogoproto.goproto_unrecognized_all) = false;
-
+option go_package = "k8s.io/kubelet/pkg/apis/podresources/v1alpha1";
 
 // PodResourcesLister is a service provided by the kubelet that provides information about the
 // node resources consumed by pods and containers on the node
@@ -45,31 +35,4 @@ message ContainerResources {
 message ContainerDevices {
     string resource_name = 1;
     repeated string device_ids = 2;
-}
-
-// PodTopologyAwareResources contains information about the resources assigned to a container,
-// and organized as topology aware format.
-message PodTopologyAwareResources {
-    string pod_uid = 1;
-    string pod_name = 2;
-    string pod_namespace = 3;
-    repeated ContainerTopologyAwareResources container_topology_aware_resources = 4;
-}
-
-message ContainerTopologyAwareResources {
-    string container_name = 1;
-    TopologyAwareResources allocated_resources = 2;
-}
-
-message TopologyAwareResources {
-    map<string, ListOfTopologyAwareQuantity> topology_aware_resources = 1;
-}
-
-message ListOfTopologyAwareQuantity {
-    repeated TopologyAwareQuantity topology_aware_quantity_list = 1;
-}
-
-message TopologyAwareQuantity {
-    string resource_value = 1;
-    uint64 nodes = 2;
 }
