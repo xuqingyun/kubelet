@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -48,15 +49,29 @@ const (
 	KubeletResourcePluginGetTopologyAwareResourcesRPCTimeoutInSecs = 10
 	// Timeout duration in secs for GetTopologyAwareAllocatableResources RPC
 	KubeletResourcePluginGetTopologyAwareAllocatableResourcesRPCTimeoutInSecs = 10
+	// Timeout duration in secs for GetAssociatedDeviceTopologyHints RPC
+	KubeletResourcePluginGetAssociatedDeviceTopologyHintsRPCTimeoutInSecs = 10
+	// Timeout duration in secs for UpdateAllocatableAssociatedDevices RPC
+	KubeletResourcePluginUpdateAllocatableAssociatedDevicesRPCTimeoutInSecs = 10
+	// Timeout duration in secs for AllocateAssociatedDevice RPC
+	KubeletResourcePluginAllocateAssociatedDeviceRPCTimeoutInSecs = 10
 
-	PodRoleLabelKey      = "katalyst.kubewharf.io/pod_role"
-	PodTypeAnnotationKey = "katalyst.kubewharf.io/pod_type"
+	// [TODO](sunjianyu) make role, type identifiers more general
+	// label to identity pod role
+	PodRoleLabelKey      = "bytedance.com/pod-role"
+	PodTypeAnnotationKey = "godel.bytedance.com/pod-resource-type"
 
 	KatalystQoSLevelAnnotationKey     = "katalyst.kubewharf.io/qos_level"
-	KatalystNumaBindingAnnotationKey  = "katalyst.kubewharf.io/numa_binding"
 	KatalystSkipQRMAdmitAnnotationKey = "katalyst.kubewharf.io/skip_qrm_admit"
 
-	KatalystQoSLevelLabelKey = KatalystQoSLevelAnnotationKey
+	KatalystDeprecatedQoSLevelAnnotationKey     = "katalyst.cloud/qos_level"
+	KatalystDeprecatedSkipQRMAdmitAnnotationKey = "katalyst.cloud/skip_qrm_admit"
+
+	KatalystNUMABindResultAnnotationKey = "katalyst.kubewharf.io/numa_bind_result"
+	QRMNUMABindResultAnnotationKey      = "qrm.katalyst.kubewharf.io/numa_bind_result"
+
+	KatalystQoSLevelLabelKey           = KatalystQoSLevelAnnotationKey
+	KatalystDeprecatedQoSLevelLabelKey = KatalystDeprecatedQoSLevelAnnotationKey
 
 	KatalystQoSLevelDedicatedCores = "dedicated_cores"
 	KatalystQoSLevelSharedCores    = "shared_cores"
@@ -68,7 +83,29 @@ const (
 	KatalystMemoryEnhancementAnnotationKey = "katalyst.kubewharf.io/memory_enhancement"
 	KatalystCPUEnhancementAnnotationKey    = "katalyst.kubewharf.io/cpu_enhancement"
 
+	KatalystDeprecatedMemoryEnhancementAnnotationKey = "katalyst.cloud/memory_enhancement"
+	KatalystDeprecatedCPUEnhancementAnnotationKey    = "katalyst.cloud/cpu_enhancement"
+
 	KatalystMemoryEnhancementKeyNumaBinding = "numa_binding"
+
+	PodRoleWorker          = "worker"
+	PodRoleParameterServer = "ps"
+	PodRoleParameterSocket = "socket"
+	PodRoleMicroService    = "micro-service"
+	PodRoleSocketService   = "socket-service"
+
+	PodTypeBestEffort = "best-effort"
+	PodTypeGuaranteed = "guaranteed"
+
+	// KatalystExpectedQRMPluginsAnnotationKey is the annotation key that specifies the expected QRM plugins on the node.
+	KatalystExpectedQRMPluginsAnnotationKey = "node.katalyst.kubewharf.io/expected_qrm_plugins"
+
+	// KatalystPodAffinityAnnotationKey is the annotation key that specifies the pod affinity.
+	KatalystPodAffinityAnnotationKey = "katalyst.kubewharf.io/pod_affinity"
+	// KatalystPodAntiAffinityAnnotationKey is the annotation key that specifies the pod anti-affinity.
+	KatalystPodAntiAffinityAnnotationKey = "katalyst.kubewharf.io/pod_anti_affinity"
+	// ResourceNetBandwidth is the resource name for net bandwidth.
+	ResourceNetBandwidth v1.ResourceName = "resource.katalyst.kubewharf.io/net_bandwidth"
 )
 
 var SupportedVersions = [...]string{"v1alpha1"}

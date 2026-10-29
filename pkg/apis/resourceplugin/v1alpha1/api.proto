@@ -1,19 +1,9 @@
-// To regenerate api.pb.go run hack/update-generated-resource-plugin.sh
-syntax = 'proto3';
+// To regenerate api.pb.go run `hack/update-codegen.sh protobindings`
+syntax = "proto3";
 
 package resourceplugin.v1alpha1;
 
-import "github.com/gogo/protobuf/gogoproto/gogo.proto";
-
-option (gogoproto.goproto_stringer_all) = false;
-option (gogoproto.stringer_all) =  true;
-option (gogoproto.goproto_getters_all) = true;
-option (gogoproto.marshaler_all) = true;
-option (gogoproto.sizer_all) = true;
-option (gogoproto.unmarshaler_all) = true;
-option (gogoproto.goproto_unrecognized_all) = false;
-
-option go_package = "v1alpha1";
+option go_package = "k8s.io/kubelet/pkg/apis/resourceplugin/v1alpha1";
 
 
 // Registration is the service advertised by the Kubelet
@@ -33,6 +23,10 @@ message ResourcePluginOptions {
 	bool with_topology_alignment = 2;
 	// Indicates if the resource needs reconciling allocation result
 	bool need_reconcile = 3;
+    // Indicates the devices that this plugin needs to allocate
+    repeated string associated_devices = 4;
+    // Indicates the extra resources that this plugin needs to allocate
+    repeated string extra_resources = 5;
 }
 
 message RegisterRequest {
@@ -76,31 +70,6 @@ message ResourceRequest {
     string native_qos_class = 14;
 }
 
-message PodResourceRequest {
-  string pod_uid = 1;
-  string pod_namespace = 2;
-  string pod_name = 3;
-  string pod_role = 4;
-  string pod_type = 5;
-  string resource_name = 6;
-  TopologyHint hint = 7;
-  map<string,double> resource_requests = 8;
-  map<string, string> labels = 9;
-  map<string, string> annotations = 10;
-}
-
-message PodResourceHintsResponse {
-  string pod_uid = 1;
-  string pod_namespace = 2;
-  string pod_name = 3;
-  string pod_role = 4;
-  string pod_type = 5;
-  string resource_name = 6;
-  map<string,ListOfTopologyHints> resource_hints = 7;
-  map<string, string> labels = 8;
-  map<string, string> annotations = 9;
-}
-
 message ResourceHintsResponse {
 	string pod_uid = 1;
 	string pod_namespace = 2;
@@ -131,18 +100,6 @@ message ResourceAllocationResponse {
     map<string, string> labels = 11;
     map<string, string> annotations = 12;
     string native_qos_class = 13;
-}
-
-message PodResourceAllocationResponse {
-  string pod_uid = 1;
-  string pod_namespace = 2;
-  string pod_name = 3;
-  string pod_role = 4;
-  string pod_type = 5;
-  string resource_name = 6;
-  ResourceAllocation allocation_result = 7;
-  map<string, string> labels = 8;
-  map<string, string> annotations = 9;
 }
 
 message ListOfTopologyHints {
@@ -180,22 +137,24 @@ message ResourceAllocation {
 }
 
 message ResourceAllocationInfo {
-  string oci_property_name = 1;
-  bool is_node_resource = 2;
-  bool is_scalar_resource = 3;
-  // only for exclusive resources
-  double allocated_quantity = 4;
-  string allocation_result = 5;
-  map<string,string> envs = 6;
-  map<string,string> annotations = 7;
-  // topology hints corresponds to allocation information.
-  // we need it when kubelet restarts and resurces had been allocated.
-  // - why don't we use GetTopologyAwareResources of qrm to generate hints?
-  // - for those resources with accompanying resources,
-  //   we can't generate hints of its accompanying resource by its allocation_result.
-  ListOfTopologyHints resource_hints = 8;
-  // keyed by numa node id, value is assignment for the pod in corresponding NUMA node
-  map<uint64, uint64> topology_assignments = 9;
+	string oci_property_name = 1;
+    bool is_node_resource = 2;
+	bool is_scalar_resource = 3;
+	// only for exclusive resources
+	double allocated_quantity = 4;
+    string allocation_result = 5;
+    map<string,string> envs = 6;
+    map<string,string> annotations = 7;
+    // topology hints corresponds to allocation information.
+    // we need it when kubelet restarts and resurces had been allocated.
+    // - why don't we use GetTopologyAwareResources of qrm to generate hints?
+    // - for those resources with accompanying resources,
+    //   we can't generate hints of its accompanying resource by its allocation_result.
+    ListOfTopologyHints resource_hints = 8;
+    // keyed by NUMA node ID, value is assignment for the pod in the corresponding NUMA node
+    map<uint64, uint64> topology_assignments = 9;
+    // Devices for the container.
+    repeated DeviceSpec devices = 11;
 }
 
 message GetTopologyAwareResourcesRequest {
@@ -277,7 +236,7 @@ service ResourcePlugin {
 	// GetTopologyHints returns hints of corresponding resources
     rpc GetTopologyHints(ResourceRequest) returns (ResourceHintsResponse) {}
 
-  // GetPodTopologyHints returns hints of corresponding resources for pod
+    // GetPodTopologyHints returns hints of corresponding resources for pod
     rpc GetPodTopologyHints(PodResourceRequest) returns (PodResourceHintsResponse) {}
 
 	// Notify the resource plugin that the pod has beed deleted,
@@ -302,13 +261,147 @@ service ResourcePlugin {
     // according to resource request
     rpc Allocate(ResourceRequest) returns (ResourceAllocationResponse) {}
 
-  // AllocateForPod is called during pod admit so that the resource
-  // plugin can allocate corresponding resource for the pod
-  // according to resource request
-  rpc AllocateForPod(PodResourceRequest) returns (PodResourceAllocationResponse) {}
+    // AllocateForPod is called during pod admit so that the resource
+    // plugin can allocate corresponding resource for the pod
+    // according to resource request
+    rpc AllocateForPod(PodResourceRequest) returns (PodResourceAllocationResponse) {}
 
 	// PreStartContainer is called, if indicated by resource plugin during registeration phase,
 	// before each container start. Resource plugin can run resource specific operations
 	// such as resetting the resource before making resources available to the container
 	rpc PreStartContainer(PreStartContainerRequest) returns (PreStartContainerResponse) {}
+
+    // GetAssociatedDeviceTopologyHints gets associated device for the container
+    rpc GetAssociatedDeviceTopologyHints(AssociatedDeviceRequest) returns (AssociatedDeviceHintsResponse) {}
+
+    // UpdateAllocatableAssociatedDevices updates the allocatable associated devices for the resource plugin
+    // This is called when the device plugin reports the allocatable devices
+    rpc UpdateAllocatableAssociatedDevices(UpdateAllocatableAssociatedDevicesRequest) returns (UpdateAllocatableAssociatedDevicesResponse) {}
+
+    // AllocateAssociatedDevice allocates the associated device for the container
+    rpc AllocateAssociatedDevice(AssociatedDeviceRequest) returns (AssociatedDeviceAllocationResponse) {}
+}
+
+// AssociatedDevice represents a device that is associated with a resource and can be used by a container.
+message AssociatedDevice {
+    // ID is a unique identifier assigned by the device plugin to identify the device.
+    // The maximum length of this field is 63 characters.
+    string ID = 1;
+    // Health indicates the health of the device (e.g., healthy or unhealthy).
+    // See constants.go for possible values.
+    string health = 2;
+    // Topology provides the NUMA affinity of the device.
+    TopologyInfo topology = 3;
+}
+
+// TopologyInfo contains the NUMA node information for a device.
+message TopologyInfo {
+    repeated NUMANode nodes = 1;
+}
+
+// NUMANode represents a NUMA node.
+message NUMANode {
+    int64 ID = 1;
+}
+
+// UpdateAllocatableAssociatedDevicesRequest is the request sent to a resource plugin
+// to update its knowledge of allocatable devices.
+message UpdateAllocatableAssociatedDevicesRequest {
+    string device_name = 1;
+    repeated AssociatedDevice devices = 2;
+}
+
+// UpdateAllocatableAssociatedDevicesResponse is the empty response from the resource plugin.
+message UpdateAllocatableAssociatedDevicesResponse {
+}
+
+// AssociatedDeviceRequest is the request sent to a resource plugin to allocate an associated device.
+message AssociatedDeviceRequest {
+    ResourceRequest resource_request = 1;
+    repeated DeviceRequest device_request = 2;
+    string accompany_resource_name = 3;
+    string device_name = 4;
+}
+
+message DeviceRequest {
+    string device_name = 1;
+    TopologyHint hint = 2;
+    repeated string available_devices = 3;
+    repeated string reusable_devices = 4;
+    uint64 device_request = 5;
+}
+
+// AssociatedDeviceAllocationResponse contains the result of an associated device allocation.
+message AssociatedDeviceAllocationResponse {
+    AssociatedDeviceAllocation allocation_result = 1;
+}
+
+// AssociatedDeviceAllocation represents the result of an allocation.
+message AssociatedDeviceAllocation {
+    repeated string allocated_devices = 1;
+}
+
+message AssociatedDeviceHintsResponse {
+    string pod_uid = 1;
+    string pod_namespace = 2;
+    string pod_name = 3;
+    string container_name = 4;
+    ContainerType container_type = 5;
+    uint64 container_index = 6;
+    string pod_role = 7;
+    string pod_type = 8;
+    string device_name = 9;
+    ListOfTopologyHints device_hints = 10;
+    map<string, string> labels = 11;
+    map<string, string> annotations = 12;
+}
+
+message PodResourceRequest {
+    string pod_uid = 1;
+    string pod_namespace = 2;
+    string pod_name = 3;
+    string pod_role = 4;
+    string pod_type = 5;
+    string resource_name = 6;
+    TopologyHint hint = 7;
+    map<string,double> resource_requests = 8;
+    map<string, string> labels = 9;
+    map<string, string> annotations = 10;
+}
+
+message PodResourceHintsResponse {
+    string pod_uid = 1;
+    string pod_namespace = 2;
+    string pod_name = 3;
+    string pod_role = 4;
+    string pod_type = 5;
+    string resource_name = 6;
+    map<string,ListOfTopologyHints> resource_hints = 7;
+    map<string, string> labels = 8;
+    map<string, string> annotations = 9;
+}
+
+message PodResourceAllocationResponse {
+    string pod_uid = 1;
+    string pod_namespace = 2;
+    string pod_name = 3;
+    string pod_role = 4;
+    string pod_type = 5;
+    string resource_name = 6;
+    ResourceAllocation allocation_result = 7;
+    map<string, string> labels = 8;
+    map<string, string> annotations = 9;
+}
+
+// DeviceSpec specifies a host device to mount into a container.
+message DeviceSpec {
+    // Path of the device within the container.
+    string container_path = 1;
+    // Path of the device on the host.
+    string host_path = 2;
+    // Cgroups permissions of the device, candidates are one or more of
+    // * r - allows container to read from the specified device.
+    // * w - allows container to write to the specified device.
+    // * m - allows container to create device files that do not yet exist.
+    string permissions = 3;
 }
